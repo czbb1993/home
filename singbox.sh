@@ -26,17 +26,13 @@ PORT_REALITY=8443
 [ -z "$KEYPAIR" ] && KEYPAIR=$(sing-box generate reality-keypair)
 REALITY_PRIVATE_KEY=$(echo "$KEYPAIR" | grep PrivateKey | awk '{print $2}')
 REALITY_PUBLIC_KEY=$(echo "$KEYPAIR" | grep PublicKey | awk '{print $2}')
-SHORT_ID1=$(sing-box generate rand --hex 4 | tr -d '\n')
-SHORT_ID2=$(sing-box generate rand --hex 4 | tr -d '\n')
 
 # 3. 写入终极双端口配置（2025 年最稳写法）
 cat > /etc/sing-box/config.json <<EOF
 {
-  "log": {"level": "info", "timestamp": true},
   "inbounds": [
     {
       "type": "hysteria2",
-      "tag": "hy2",
       "listen": "::",
       "listen_port": $PORT_HY2,
       "users": [
@@ -56,30 +52,31 @@ cat > /etc/sing-box/config.json <<EOF
         },
     {
       "type": "vless",
-      "tag": "vless-reality",
       "listen": "::",
       "listen_port": $PORT_REALITY,
       "users": [{"uuid": "$FIXED_UUID", "flow": "xtls-rprx-vision"}],
       "tls": {
-        "enabled": true,
-        "server_name": "$REALITY_DOMAIN",
-        "reality": {
-          "enabled": true,
-          "handshake": {"server": "$REALITY_DOMAIN", "server_port": 443},
-          "private_key": "$REALITY_PRIVATE_KEY",
-          "public_key": "$REALITY_PUBLIC_KEY",
-          "short_id": ["$SHORT_ID1","$SHORT_ID2"]
-        },
-        "server_names": ["$REALITY_DOMAIN","www.microsoft.com","login.microsoft.com"],
-        "fallback": {"dest": "www.microsoft.com:443", "alpn": "h2,http/1.1"}
-      },
-      "multiplex": {"enabled": false}
-    }
-  ],
+                "enabled": true,
+                    "server_name": "$REALITY_DOMAIN",
+                "reality": {
+                    "enabled": true,
+                    "handshake": {
+                        "server": "$REALITY_DOMAIN",
+                        "server_port": 443
+                    },
+                    "private_key": "$REALITY_PRIVATE_KEY", //vps上执行sing-box generate reality-keypair
+                    "short_id": [
+                        "0123456789abcdef"// 0到f，长度为2的倍数，长度上限为16，默认这个也可以
+                    ]
+                }
+            }
+        }
+    ],
   "outbounds": [
-    {"type": "direct", "tag": "direct"},
-    {"type": "block", "tag": "block"}
-  ]
+        {
+            "type": "direct"
+        }
+    ]
 }
 EOF
 
@@ -91,8 +88,8 @@ IP=$(curl -s ip.sb)
 echo "===================================================="
 echo "终极双端口版部署完成（2025 年最稳方案）"
 echo "Hysteria2 → 443 端口（主用，速度最快）"
-echo "vless://$HY2_PASSWORD@$IP:$PORT_HY2/?sni=bing.com&insecure=1&obfs=salamander&obfsPassword=$HY2_PASSWORD#Hy2-443"
+echo "hysteria2://$HY2_PASSWORD@$IP:$PORT_HY2/?sni=bing.com&insecure=1#Hy2-443"
 echo ""
 echo "VLESS-Reality → 8443 端口（备用，几乎永不封）"
-echo "vless://$FIXED_UUID@$IP:$PORT_REALITY?encryption=none&flow=xtls-rprx-vision&security=reality&sni=$REALITY_DOMAIN&fp=chrome&pbk=$REALITY_PUBLIC_KEY&sid=$SHORT_ID1&type=tcp#Reality-8443"
+echo "vless://$FIXED_UUID@$IP:$PORT_REALITY?encryption=none&flow=xtls-rprx-vision&security=reality&sni=$REALITY_DOMAIN&fp=chrome&pbk=$REALITY_PUBLIC_KEY&sid=0123456789abcdef&type=tcp#Reality-8443"
 echo "===================================================="
