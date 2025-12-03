@@ -44,50 +44,53 @@ echo "ShortId: $SHORT_ID1 和 $SHORT_ID2"
 
 # 写入配置（所有参数自动填充）
 cat > /etc/sing-box/config.json <<EOF
-{
-  "log": { "level": "info", "timestamp": true },
-  "inbounds": [
-    {
-      "type": "hysteria2",
-      "listen": "::",
-      "listen_port": $PORT,
-      "up_mbps": 100,
-      "down_mbps": 200,
-      "password": "$HY2_PASSWORD",
-      "tls": {
-        "enabled": true,
-        "server_name": "bing.com",
-        "certificate_path": "/etc/hysteria/cert.pem",
-        "key_path": "/etc/hysteria/private.key"
-      }
+"inbounds": [
+  {
+    "type": "hysteria2",
+    "tag": "hy2",
+    "listen": "::",
+    "listen_port": 443,
+    "up_mbps": 100,
+    "down_mbps": 200,
+    "password": "$HY2_PASSWORD",
+    "tls": {
+      "enabled": true,
+      "server_name": "bing.com",
+      "certificate_path": "/etc/hysteria/cert.pem",
+      "key_path": "/etc/hysteria/private.key"
     },
-    {
-      "type": "vless",
-      "tag": "vless-reality",
-      "listen": "::",
-      "listen_port": $PORT,
-      "users": [
-        { "uuid": "$FIXED_UUID", "flow": "xtls-rprx-vision" }
-      ],
-      "tls": {
+    "sniff": true,
+    "sniff_override_fields": true
+  },
+  {
+    "type": "vless",
+    "tag": "vless-reality",
+    "listen": "::",
+    "listen_port": 443,
+    "sniff": true,
+    "sniff_override_fields": true,
+    "users": [
+      { "uuid": "$FIXED_UUID", "flow": "xtls-rprx-vision" }
+    ],
+    "tls": {
+      "enabled": true,
+      "server_name": "$REALITY_DOMAIN",
+      "reality": {
         "enabled": true,
-        "server_name": "$REALITY_DOMAIN",
-        "reality": {
-          "enabled": true,
-          "handshake": { "server": "$REALITY_DOMAIN", "server_port": 443 },
-          "private_key": "$REALITY_PRIVATE_KEY",
-          "public_key": "$REALITY_PUBLIC_KEY",
-          "short_id": [ "$SHORT_ID1", "$SHORT_ID2" ]
-        }
+        "handshake": { "server": "$REALITY_DOMAIN", "server_port": 443 },
+        "private_key": "$REALITY_PRIVATE_KEY",
+        "public_key": "$REALITY_PUBLIC_KEY",
+        "short_id": [ "$SHORT_ID1", "$SHORT_ID2" ]
       },
-      "multiplex": { "enabled": false }
-    }
-  ],
-  "outbounds": [
-    { "type": "direct", "tag": "direct" },
-    { "type": "block",  "tag": "block" }
-  ]
-}
+      "fallback": {
+        "dest": "www.tesla.com:443",
+        "xver": 0
+      },
+      "server_name": ["$REALITY_DOMAIN"]
+    },
+    "multiplex": { "enabled": false }
+  }
+]
 EOF
 
 # 启动服务
