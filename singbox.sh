@@ -2,7 +2,7 @@
 set -e
 
 # ==================== 只需要改这里的两个地方 ====================
-REALITY_DOMAIN="www.microsoft.com"  # 建议这个，比 tesla 更不易被针对
+REALITY_DOMAIN="www.tesla.com"  # 建议这个，比 tesla 更不易被针对
 PORT=443
 ENABLE_BBR=true
 # ================================================================
@@ -67,6 +67,7 @@ cat > /etc/sing-box/config.json <<EOF
       "tag": "vless-reality",
       "listen": "::",
       "listen_port": $PORT,
+      "proxy_protocol": { "accept_no_header": true },
       "sniff": true,
       "sniff_override_fields": true,
       "users": [
