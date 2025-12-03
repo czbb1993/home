@@ -2,7 +2,11 @@
 set -e
 
 # 安装 sing-box beta 版（官方最新脚本，含 Hysteria2）
-bash -c "$(curl -L sing-box.vercel.app)" @ install
+#bash -c "$(curl -L sing-box.vercel.app)" @ install
+
+systemctl enable sing-box
+systemctl start sing-box
+journalctl -u sing-box --output cat -e
 
 # 创建目录 + 自签证书（10年，CN=bing.com）
 mkdir -p /etc/hysteria /etc/sing-box
