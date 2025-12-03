@@ -12,7 +12,7 @@ echo " sing-box + Reality + Hysteria2 自动生成参数版"
 echo " 域名和端口手动改，其他全部自动生成（更安全！）"
 echo "===================================================="
 # 安装 sing-box 预发布版（含 hysteria2）
-bash -c "$(curl -fsSL https://sing-box.app/install.sh)" --beta
+bash <(curl -fsSL https://sing-box.app/install.sh) --beta
 
 # 创建目录 + 自签证书（10年，CN=bing.com）
 mkdir -p /etc/hysteria /etc/sing-box
