@@ -81,7 +81,7 @@ EOF
 systemctl restart sing-box
 
 # 5. 输出新节点信息
-IP=$(curl -s ipv6.ip.sb)
+IP=$(curl -s ip.sb)
 echo "===================================================="
 echo "终极双端口版部署完成（2025 年最稳方案）"
 echo "Hysteria2 → 443 端口（主用，速度最快）"
