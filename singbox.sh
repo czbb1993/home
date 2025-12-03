@@ -11,6 +11,14 @@ echo "===================================================="
 echo " sing-box + Reality + Hysteria2 自动生成参数版"
 echo " 域名和端口手动改，其他全部自动生成（更安全！）"
 echo "===================================================="
+# 安装 sing-box 预发布版（含 hysteria2）
+bash -c "$(curl -L https://sing-box.vercel.app)" @ install --beta
+
+# 创建目录 + 自签证书（10年，CN=bing.com）
+mkdir -p /etc/hysteria /etc/sing-box
+openssl ecparam -genkey -name prime256v1 -out /etc/hysteria/private.key
+openssl req -new -x509 -days 3650 -key /etc/hysteria/private.key -out /etc/hysteria/cert.pem -subj "/CN=bing.com"
+
 
 # 1. 自动生成 UUID
 FIXED_UUID=$(sing-box generate uuid 2>/dev/null || cat /proc/sys/kernel/random/uuid)
@@ -33,13 +41,6 @@ SHORT_ID2=$(sing-box generate rand --hex 4 | tr -d '\n')
 SHORT_IDS="$SHORT_ID1,$SHORT_ID2"
 echo "ShortId: $SHORT_ID1 和 $SHORT_ID2"
 
-# 安装 sing-box 预发布版（含 hysteria2）
-bash -c "$(curl -L https://sing-box.vercel.app)" @ install --beta
-
-# 创建目录 + 自签证书（10年，CN=bing.com）
-mkdir -p /etc/hysteria /etc/sing-box
-openssl ecparam -genkey -name prime256v1 -out /etc/hysteria/private.key
-openssl req -new -x509 -days 3650 -key /etc/hysteria/private.key -out /etc/hysteria/cert.pem -subj "/CN=bing.com"
 
 # 写入配置（所有参数自动填充）
 cat > /etc/sing-box/config.json <<EOF
