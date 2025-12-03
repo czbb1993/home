@@ -43,59 +43,72 @@ echo "ShortId: $SHORT_ID1 和 $SHORT_ID2"
 # 写入完整配置（log + inbounds + outbounds，443 共存 + sniff + fallback）
 cat > /etc/sing-box/config.json <<EOF
 {
-  "log": { "level": "info", "timestamp": true },
+  "log": {"level": "info", "timestamp": true},
   "inbounds": [
+    {
+      "type": "mixed",
+      "tag": "mixed-443",
+      "listen": "::",
+      "listen_port": 443,
+      "sniff": true,
+      "sniff_override_fields": true
+    },
     {
       "type": "hysteria2",
       "tag": "hy2",
-      "listen": "::",
-      "listen_port": $PORT,
+      "listen": "127.0.0.1",
+      "listen_port": 3000,
       "up_mbps": 300,
       "down_mbps": 800,
       "password": "$HY2_PASSWORD",
+      "obfs": {
+        "type": "salamander",
+        "password": "$HY2_PASSWORD"
+      },
+      "masquerade": "https://bing.com",
       "tls": {
         "enabled": true,
         "server_name": "bing.com",
         "certificate_path": "/etc/hysteria/cert.pem",
         "key_path": "/etc/hysteria/private.key"
-      },
-      "sniff": true,
-      "sniff_override_fields": true
+      }
     },
     {
       "type": "vless",
       "tag": "vless-reality",
-      "listen": "::",
-      "listen_port": $PORT,
-      "proxy_protocol": { "accept_no_header": true },
-      "sniff": true,
-      "sniff_override_fields": true,
-      "users": [
-        { "uuid": "$FIXED_UUID", "flow": "xtls-rprx-vision" }
-      ],
+      "listen": "127.0.0.1",
+      "listen_port": 3001,
+      "users": [{"uuid": "$FIXED_UUID", "flow": "xtls-rprx-vision"}],
       "tls": {
         "enabled": true,
         "server_name": "$REALITY_DOMAIN",
         "reality": {
           "enabled": true,
-          "handshake": { "server": "$REALITY_DOMAIN", "server_port": 443 },
+          "handshake": {"server": "$REALITY_DOMAIN", "server_port": 443},
           "private_key": "$REALITY_PRIVATE_KEY",
           "public_key": "$REALITY_PUBLIC_KEY",
-          "short_id": [ "$SHORT_ID1", "$SHORT_ID2" ]
+          "short_id": ["$SHORT_ID1", "$SHORT_ID2"]
         },
-        "fallback": {
-          "dest": "$REALITY_DOMAIN:443",
-          "xver": 0
-        },
-        "server_names": ["$REALITY_DOMAIN"]
+        "server_names": ["$REALITY_DOMAIN", "www.microsoft.com", "bing.com"]
       },
-      "multiplex": { "enabled": false }
+      "transport": {
+        "type": "http",
+        "path": "/reality-handshake"
+      },
+      "multiplex": {"enabled": false}
     }
   ],
   "outbounds": [
-    { "type": "direct", "tag": "direct" },
-    { "type": "block", "tag": "block" }
-  ]
+    {"type": "direct", "tag": "direct"},
+    {"type": "block", "tag": "block"}
+  ],
+  "route": {
+    "rules": [
+      {"inbound": "mixed-443", "port": 3000, "outbound": "hy2"},
+      {"inbound": "mixed-443", "protocol": "tls", "outbound": "vless-reality"},
+      {"inbound": "mixed-443", "outbound": "direct"}
+    ]
+  }
 }
 EOF
 
