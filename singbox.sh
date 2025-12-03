@@ -28,6 +28,7 @@ REALITY_PRIVATE_KEY=$(echo "$KEYPAIR" | grep PrivateKey | awk '{print $2}')
 REALITY_PUBLIC_KEY=$(echo "$KEYPAIR" | grep PublicKey | awk '{print $2}')
 
 # 3. 写入终极双端口配置（2025 年最稳写法）
+rm /etc/sing-box/config.json
 cat > /etc/sing-box/config.json <<EOF
 {
   "inbounds": [
