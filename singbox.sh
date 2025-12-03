@@ -13,7 +13,7 @@ echo " 域名和端口手动改，其他全部自动生成（更安全！）"
 echo "===================================================="
 
 # 安装 sing-box beta 版（官方最新脚本，含 Hysteria2）
-bash <(curl -fsSL https://sing-box.app/install.sh) --beta
+bash -c "$(curl -L sing-box.vercel.app)" @ install
 
 # 创建目录 + 自签证书（10年，CN=bing.com）
 mkdir -p /etc/hysteria /etc/sing-box
