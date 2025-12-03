@@ -39,18 +39,21 @@ cat > /etc/sing-box/config.json <<EOF
       "tag": "hy2",
       "listen": "::",
       "listen_port": $PORT_HY2,
-      "up_mbps": 500,
-      "down_mbps": 1000,
-      "password": "$HY2_PASSWORD",
-      "obfs": {"type": "salamander", "password": "$HY2_PASSWORD"},
+      "users": [
+                {
+                    "password": "$HY2_PASSWORD", //你的密码
+                }
+            ],
       "masquerade": "https://bing.com",
       "tls": {
-        "enabled": true,
-        "server_name": "bing.com",
-        "certificate_path": "/etc/hysteria/cert.pem",
-        "key_path": "/etc/hysteria/private.key"
-      }
-    },
+                "enabled": true,
+                "alpn": [
+                    "h3"
+                ],
+                "certificate_path": "/etc/hysteria/cert.pem",
+                "key_path": "/etc/hysteria/private.key"
+            }
+        },
     {
       "type": "vless",
       "tag": "vless-reality",
