@@ -105,31 +105,27 @@ else
     echo "兜底 IP：$DISPLAY_IP"
 fi
 
-GEO_TAG=""
+GEO_TAG="??"
 
-# 直接同步跑，最多 4 秒，强制有结果
-DATA=$(timeout 4 curl -s "https://ip-api.com/json/$IP_TO_GEO?fields=countryCode" || \
-       timeout 4 curl -s "https://api.ip.sb/geoip/$IP_TO_GEO" || echo '{}')
-echo "服务器地址：$DATA
-# 超级无敌兼容的 awk 一行解决国码
-CC=$(echo "$DATA" | awk -F'"' '
-  /countryCode|/country_code/ {
-    for(i=1;i<=NF;i++) if($i ~ /^[A-Z]{2}$/ && length($i)==2) {print $i; exit}
-  }' | head -1)
+# 5 秒内必须给我吐出国家码，谁不行换谁，直到成功
+for api in "https://ipinfo.io/country" \
+           "https://api.ip.sb/ipinfo/country" \
+           "https://ip.gs/country" \
+           "https://ip.skk.moe/country"; do
+    CC=$(curl -s --max-time 5 "$api" 2>/dev/null | tr -d '[:space:]')
+    [[ $CC =~ ^[A-Z]{2}$ ]] && { GEO_TAG="$CC"; break; }
+done
 
-# 直接写死几个常见国家就行，稳到爆
-case "$CC" in
-    HK|SG|MO|TW|JP|KR|KP) GEO_TAG="$CC" ;;
-    US) GEO_TAG="USA" ;;
-    CN) GEO_TAG="CN" ;;
-    *) [[ -n "$CC" ]] && GEO_TAG="$CC" ;;
-esac
+# 特殊处理美国和中国（可选）
+[[ "$GEO_TAG" == "US" ]] && GEO_TAG="USA"
+[[ "$GEO_TAG" == "CN" ]] && GEO_TAG="CN"
 
-# 强制给你一个可见的反馈（运行一次后你可以删这行）
-echo "地理位置检测结果：CC=$CC → GEO_TAG=$GEO_TAG"
+# 强制给你看一眼结果（跑一次成功后你可以删这行）
+echo -e "\n地理位置强制获取成功：$GEO_TAG"
+
 FINAL_TAG="${GEO_TAG}${GEO_TAG:+-}${IP_TYPE}"
 
-# ==================== 输出终极节点链接（带 v4/v6 + 地区标签）================
+echo ==================== 输出终极节点链接（带 v4/v6 + 地区标签）================
 echo "服务器地址：$DISPLAY_IP   |   标签：$FINAL_TAG"
 echo ""
 echo "Hysteria2（主力冲量）"
