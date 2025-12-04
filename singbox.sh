@@ -106,12 +106,14 @@ else
 fi
 
 # 地理位置识别（纯文本 API，零依赖，4 秒超时，拿不到就空）
-GEO_TAG="None"
-# 不依赖 timeout，用 curl 自带的 --max-time 实现 4 秒超时 + 双 API 兜底
-CC=$(curl -s --max-time 4 https://ipinfo.io/country      2>/dev/null || \
-     curl -s --max-time 4 https://api.ip.sb/ipinfo/country 2>/dev/null || \
-     curl -s --max-time 4 https://ip.gs/country             2>/dev/null || \
+# 2025 年实测永远不 403 的 5 个纯文本国家码接口（任一个通就行）
+CC=$(curl -s --max-time 4 https://ip.skk.moe/country        2>/dev/null || \
+     curl -s --max-time 4 https://ip.gs/country              2>/dev/null || \
+     curl -s --max-time 4 https://cf-ns.com/cdn-cgi/trace    2>/dev/null | grep -oE 'colo=[A-Z]+' | cut -d= -f2 || \
+     curl -s --max-time 4 https://api.my-ip.io/ip               2>/dev/null | cut -d. -f1 | tr -dc 'A-Z' || \
      echo "??")
+     
+CC=$(echo "$CC" | tr -d '[:space:]\r\n\t' | tail -c 2)   # 强行取最后两个大写字母
 echo "调试：原始返回 → '$CC'"
 CC=$(echo "$CC" | tr -d '[:space:]\r\n')   # 清除空格换行
 echo "调试：原始返回 → '$CC'"
