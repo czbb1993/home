@@ -17,26 +17,10 @@ fi
 
 # 1. 先把变量读进来（防止脚本里没定义）
 source /dev/null  # 清空
-# REALITY_DOMAIN="www.microsoft.com"
-# PORT_HY2=443
-# PORT_REALITY=8443
-# REALITY 伪装域名（默认微软）
-read -p "REALITY 伪装域名 [默认: www.microsoft.com]: " REALITY_DOMAIN
-REALITY_DOMAIN=${REALITY_DOMAIN:-www.microsoft.com}
+REALITY_DOMAIN="www.microsoft.com"
+PORT_HY2=443
+PORT_REALITY=8443
 
-# Hysteria2 端口（默认 443）
-read -p "Hysteria2 监听端口 [默认: 443]: " PORT_HY2
-PORT_HY2=${PORT_HY2:-443}
-
-# Reality 端口（默认 8443）
-read -p "VLESS Reality 监听端口 [默认: 8443]: " PORT_REALITY
-PORT_REALITY=${PORT_REALITY:-8443}
-
-# 简单校验端口冲突检测（防止自己打死自己）
-if [[ "$PORT_HY2" == "$PORT_REALITY" ]]; then
-    echo "错误：Hysteria2 和 Reality 端口不能一样！"
-    exit 1
-fi
 # 2. 生成/读取密钥（如果已经有就直接用）
 [ -f /etc/hysteria/private.key ] || openssl ecparam -genkey -name prime256v1 -out /etc/hysteria/private.key
 [ -f /etc/hysteria/cert.pem ] || openssl req -new -x509 -days 3650 -key /etc/hysteria/private.key -out /etc/hysteria/cert.pem -subj "/CN=bing.com"
