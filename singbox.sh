@@ -108,21 +108,28 @@ fi
 GEO_TAG="None"
 
 {
+    # 最多只花 4 秒，两个 API 随便哪个返回就算
     DATA=$(curl -s --max-time 4 "https://ip-api.com/json/$IP_TO_GEO?fields=countryCode,regionName" || curl -s --max-time 4 "https://api.ip.sb/geoip/$IP_TO_GEO" || echo "")
 
-    CC=$(echo "$DATA" | grep -oi '"countryCode":"[A-Z]*' | cut -d'"' -f4 || echo "")
-    [[ -z "$CC" ]] && CC=$(echo "$DATA" | grep -oi '"country_code":"[A-Z]*' | cut -d'"' -f4 || echo "")
+    # ---------- 超级稳的国家码提取（兼容所有已知返回格式） ----------
+    CC=$(echo "$DATA" | grep -o '"country_code"[[:space:]]*:[[:space:]]*"[A-Z]*"' | grep -o '[A-Z][A-Z]' | head -1)
+    [[ -z "$CC" ]] && CC=$(echo "$DATA" | grep -o '"countryCode"[[:space:]]*:[[:space:]]*"[A-Z]*"' | grep -o '[A-Z][A-Z]' | head -1)
+    [[ -z "$CC" ]] && CC=$(echo "$DATA" | grep -oi '"country_code":"[A-Z]*' | cut -d'"' -f4)
+    [[ -z "$CC" ]] && CC=$(echo "$DATA" | grep -oi '"countryCode":"[A-Z]*' | cut -d'"' -f4)
 
-    REGION=$(echo "$DATA" | grep -oi '"regionName":"[^"]*' | cut -d'"' -f4 | cut -c1-8 | tr '[:lower:]' '[:upper:]' | tr -d ' ' || echo "")
+    # ---------- 地区提取（同样多层兜底） ----------
+    REGION=$(echo "$DATA" | grep -oi '"regionName":"[^"]*' | cut -d'"' -f4 | cut -c1-8 | tr '[:lower:]' '[:upper:]' | tr -d ' ' | head -1)
+    [[ -z "$REGION" ]] && REGION=$(echo "$DATA" | grep -oi '"region":"[^"]*' | cut -d'"' -f4 | cut -c1-8 | tr '[:lower:]' '[:upper:]' | tr -d ' ' | head -1)
 
-    [[ -n "$CC" && "$CC" != "XX" ]] && {
+    # ---------- 最终生成 GEO_TAG ----------
+    if [[ -n "$CC" && "$CC" != "XX" && "$CC" != "ZZ" ]]; then
         case "$CC" in
-            HK|SG|MO|TW|JP|KR) GEO_TAG="$CC" ;;
+            HK|SG|MO|TW|JP|KR|KP) GEO_TAG="$CC" ;;           # 这些国家只显示国家码
             US) GEO_TAG="USA${REGION:+-${REGION}}" ;;
             CN) GEO_TAG="CN${REGION:+-${REGION}}" ;;
-            *) GEO_TAG="${CC}${REGION:+-${REGION}}" ;;
+            *)  GEO_TAG="${CC}${REGION:+-${REGION}}" ;;
         esac
-    }
+    fi
 } &
 
 sleep 4.5
