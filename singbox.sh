@@ -83,7 +83,6 @@ EOF
 systemctl restart sing-box
 
 # 5. 输出新节点信息
-# 5. 输出新节点信息
 # ==================== 智能获取最优 IP + 判断 v4/v6 + 地理位置 ====================
 echo "正在检测公网 IP（优先 IPv4）..."
 
@@ -96,12 +95,14 @@ if [[ -n "$IP_V4" && "$IP_V4" != " " ]]; then
     IP_TO_GEO="$IP_V4"
     IP_TYPE="v4"
     echo "✔ 优先使用 IPv4：$IP_V4"
+
 elif [[ -n "$IP_V6" && "$IP_V6" != " " ]]; then
     SERVER_IP="$IP_V6"
     DISPLAY_IP="[$IP_V6]"
     IP_TO_GEO="$IP_V6"
     IP_TYPE="v6"
     echo "✔ 使用 IPv6：$DISPLAY_IP"
+
 else
     echo "⚠ 警告：IPv4 和 IPv6 都获取失败，尝试兜底方案..."
     FALLBACK=$(curl -s --max-time 10 https://api.ip.sb/ip || curl -s --max-time 10 https://ifconfig.co/ip || echo "")
@@ -117,47 +118,42 @@ else
         IP_TO_GEO="$FALLBACK"
         echo "✔ 兜底获取 IP 成功：$DISPLAY_IP"
     else
-        echo "✘ 严重错误：完全无法获取公网 IP！脚本即将退出"
+        echo "✘ 严重错误：完全无法获取公网 IP！脚本退出"
         exit 1
     fi
-    fi
 fi
+# ====================== 上面这一大段 if 已经完美闭合 ======================
 
-# ==================== 自动识别地理位置（4秒超时 + 多API兜底 + 彻底失败就留空） ====================
-GEO_TAG="None"   # 默认空，而不是 Unknown
+# ==================== 自动识别地理位置（最多等 4.5 秒，拿不到就留空） ====================
+GEO_TAG="None"
 
 {
-    # 第一个API（速度最快）
     LOCATION=$(curl -s --max-time 4 "https://ip-api.com/json/$IP_TO_GEO?fields=status,countryCode,regionName,country" 2>/dev/null)
     if [[ $(echo "$LOCATION" | jq -r '.status // empty') == "success" ]]; then
-        CC=$(echo "$LOCATION" | jq -r '.countryCode')
+        CC=$(echo "$LOCATION" | jq -r '.countryCode // empty')
         REGION=$(echo "$LOCATION" | jq -r '.regionName // empty' | cut -c1-6 | tr '[:lower:]' '[:upper:]' | sed 's/ //g')
-        COUNTRY_NAME=$(echo "$LOCATION" | jq -r '.country // empty')
     else
-        # 第二个API兜底（ip.sb）
         LOCATION=$(curl -s --max-time 4 "https://api.ip.sb/geoip/$IP_TO_GEO" 2>/dev/null)
         CC=$(echo "$LOCATION" | jq -r '.country_code // empty')
         REGION=$(echo "$LOCATION" | jq -r '.region // empty' | cut -c1-6 | tr '[:lower:]' '[:upper:]' | sed 's/ //g')
-        COUNTRY_NAME=$(echo "$LOCATION" | jq -r '.country // empty')
     fi
 
-    if [[ -n "$CC" && "$CC" != "null" ]]; then
+    if [[ -n "$CC" && "$CC" != "null" && "$CC" != "" ]]; then
         case "$CC" in
             HK|SG|MO|TW|JP|KR) GEO_TAG="$CC" ;;
             US) GEO_TAG="USA${REGION:+-${REGION}}" ;;
             CN) GEO_TAG="CN${REGION:+-${REGION}}" ;;
             *)  GEO_TAG="${CC}${REGION:+-${REGION}}" ;;
         esac
-        echo "✔ 地理位置识别成功：$COUNTRY_NAME ($GEO_TAG)"
     fi
-} &   # 后台运行，最多只等 4.disown
+} & 
 
-# 最多只等 4.5 秒
+# 最多等 4.5 秒
 sleep 4.5
 wait $! 2>/dev/null || true
 
-# 如果最终 GEO_TAG 还是空，就真的留空
-FINAL_TAG="${IP_TYPE}${GEO_TAG:+-${GEO_TAG}}"    # v4-HK   v4-USA-CA   v6
+# 最终标签：v4-HK   v4-USA-CA   v6（如果位置为空就不带后缀）
+FINAL_TAG="${IP_TYPE}${GEO_TAG:+-${GEO_TAG}}"
 echo "服务器地址：$DISPLAY_IP  |  标签：$FINAL_TAG"
 echo "===================================================="
 
