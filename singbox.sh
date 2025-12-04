@@ -108,29 +108,34 @@ else
 fi
 
 # 自动识别地理位置
-LOCATION=$(curl -s --max-time 10 "http://ip-api.com/json/$IP_TO_GEO?fields=status,countryCode,regionName,city")
-if echo "$LOCATION" | grep -q '"status":"success"'; then
-    COUNTRY_CODE=$(echo "$LOCATION" | grep -o '"countryCode":"[^"]*' | cut -d'"' -f4)
-    REGION=$(echo "$LOCATION" | grep -o '"regionName":"[^"]*' | cut -d'"' -f4 | sed 's/ /-/g' | cut -c1-3 | tr '[:lower:]' '[:upper:]')
-
-    if [[ "$COUNTRY_CODE" == "HK" || "$COUNTRY_CODE" == "SG" || "$COUNTRY_CODE" == "MO" ]]; then
-        GEO_TAG="$COUNTRY_CODE"
-    elif [[ "$COUNTRY_CODE" == "US" ]]; then
-        GEO_TAG="USA-$REGION"
-    elif [[ "$COUNTRY_CODE" == "CN" ]]; then
-        GEO_TAG="CN-$REGION"
-    else
-        CITY=$(echo "$LOCATION" | grep -o '"city":"[^"]*' | cut -d'"' -f4 | cut -c1-3 | tr '[:lower:]' '[:upper:]')
-        GEO_TAG="$COUNTRY_CODE-$CITY"
+# 极速位置识别（4秒超时 + 双API兜底 + 完全失败也继续）
+GEO_TAG="Unknown"
+{
+    LOCATION=$(curl -s --max-time 4 "https://ip-api.com/json/$IP_FOR_GEO?fields=status,countryCode,regionName" || curl -s --max-time 4 "https://api.ip.sb/geoip/$IP_FOR_GEO" || echo "")
+    if echo "$LOCATION" | grep -q -E '"status":"success"|countryCode'; then
+        if echo "$LOCATION" | grep -q "countryCode"; then
+            CC=$(echo "$LOCATION" | grep -o '"countryCode":"[^"]*' | cut -d'"' -f4)
+            REGION=$(echo "$LOCATION" | grep -o '"regionName":"[^"]*' | cut -d'"' -f4 2>/dev/null | cut -c1-3 | tr '[:lower:]' '[:upper:]' || echo "")
+        else  # ip.sb 的格式
+            CC=$(echo "$LOCATION" | grep -o '"country_code":"[^"]*' | cut -d'"' -f4)
+            REGION=$(echo "$LOCATION" | grep -o '"region":"[^"]*' | cut -d'"' -f4 | cut -c1-3 | tr '[:lower:]' '[:upper:]' || echo "")
+        fi
+        
+        case "$CC" in
+            HK|SG|MO|TW) GEO_TAG="$CC" ;;
+            US) GEO_TAG="USA-$REGION" ;;
+            CN) GEO_TAG="CN-$REGION" ;;
+            *) GEO_TAG="$CC${REGION:+-${REGION}}" ;;
+        esac
     fi
-else
-    GEO_TAG="Unknown"
-fi
+} &  # 后台运行，最多等4秒
 
+# 最多只等4秒
+sleep 4
+wait 2>/dev/null
 # 最终标签：v4-USA-CA   或   v6-HK
 FINAL_TAG="${IP_TYPE}-${GEO_TAG}"
-
-echo "节点标签自动生成：$FINAL_TAG"
+echo "服务器地址：$DISPLAY_IP  |  标签：$FINAL_TAG"
 echo "===================================================="
 
 # ==================== 输出终极节点链接（带 v4/v6 + 地区标签）================
