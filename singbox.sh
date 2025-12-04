@@ -112,6 +112,7 @@ CC=$(curl -s --max-time 4 https://ipinfo.io/country      2>/dev/null || \
      curl -s --max-time 4 https://api.ip.sb/ipinfo/country 2>/dev/null || \
      curl -s --max-time 4 https://ip.gs/country             2>/dev/null || \
      echo "??")
+echo "调试：原始返回 → '$CC'"
 CC=$(echo "$CC" | tr -d '[:space:]\r\n')   # 清除空格换行
 echo "调试：原始返回 → '$CC'"
 if [[ ${#CC} -eq 2 && "$CC" =~ [A-Z]{2} ]]; then
