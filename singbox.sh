@@ -110,7 +110,7 @@ GEO_TAG=""
 # 直接同步跑，最多 4 秒，强制有结果
 DATA=$(timeout 4 curl -s "https://ip-api.com/json/$IP_TO_GEO?fields=countryCode" || \
        timeout 4 curl -s "https://api.ip.sb/geoip/$IP_TO_GEO" || echo '{}')
-
+echo "服务器地址：$DATA
 # 超级无敌兼容的 awk 一行解决国码
 CC=$(echo "$DATA" | awk -F'"' '
   /countryCode|/country_code/ {
