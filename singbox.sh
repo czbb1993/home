@@ -105,24 +105,22 @@ else
     echo "兜底 IP：$DISPLAY_IP"
 fi
 
-GEO_TAG="??"
+# 地理位置识别（纯文本 API，零依赖，4 秒超时，拿不到就空）
+GEO_TAG=""
+CC=$(timeout 4 curl -s "https://ipinfo.io/country/$IP_TO_GEO" 2>/dev/null || timeout 4 curl -s "https://api.ip.sb/ipinfo/country/$IP_TO_GEO" 2>/dev/null || echo "??")
+CC=$(echo "$CC" | tr -d ' \n\r')
 
-for api in \
-  https://ipinfo.io/country \
-  https://api.ip.sb/ipinfo/country \
-  https://ip.gs/country \
-  https://ip.skk.moe/country
-do
-    CC=$(curl -s --max-time 5 "$api" 2>/dev/null | tr -d '[:space:]\r\n')
-    if [[ $CC =~ ^[A-Z]{2}$ ]]; then
-        GEO_TAG="$CC"
-        [[ $CC == "US" ]] && GEO_TAG="USA"
-        [[ $CC == "CN" ]] && GEO_TAG="CN"
-        break
-    fi
-done
-
-echo -e "\n地理位置强制获取成功：$GEO_TAG"
+if [[ ${#CC} -eq 2 && "$CC" =~ [A-Z]{2} ]]; then
+    case "$CC" in
+        HK|SG|MO|TW|JP|KR|KP) GEO_TAG="$CC" ;;
+        US) GEO_TAG="USA" ;;
+        CN) GEO_TAG="CN" ;;
+        *) GEO_TAG="$CC" ;;
+    esac
+    echo "✔ 地理位置：$GEO_TAG"
+else
+    echo "⚠ 地理位置未知"
+fi
 
 FINAL_TAG="${GEO_TAG}${GEO_TAG:+-}${IP_TYPE}"
 
