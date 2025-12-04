@@ -105,29 +105,22 @@ else
     echo "兜底 IP：$DISPLAY_IP"
 fi
 
-# 地理位置识别（纯文本 API，零依赖，4 秒超时，拿不到就空）
-# 2025 年实测永远不 403 的 5 个纯文本国家码接口（任一个通就行）
-CC=$(curl -s --max-time 4 https://ip.skk.moe/country        2>/dev/null || \
-     curl -s --max-time 4 https://ip.gs/country              2>/dev/null || \
-     curl -s --max-time 4 https://cf-ns.com/cdn-cgi/trace    2>/dev/null | grep -oE 'colo=[A-Z]+' | cut -d= -f2 || \
-     curl -s --max-time 4 https://api.my-ip.io/ip               2>/dev/null | cut -d. -f1 | tr -dc 'A-Z' || \
-     echo "??")
-     
-CC=$(echo "$CC" | tr -d '[:space:]\r\n\t' | tail -c 2)   # 强行取最后两个大写字母
-echo "调试：原始返回 → '$CC'"
-CC=$(echo "$CC" | tr -d '[:space:]\r\n')   # 清除空格换行
-echo "调试：原始返回 → '$CC'"
-if [[ ${#CC} -eq 2 && "$CC" =~ [A-Z]{2} ]]; then
-    case "$CC" in
-        HK|SG|MO|TW|JP|KR|KP) GEO_TAG="$CC" ;;
-        US) GEO_TAG="USA" ;;
-        CN) GEO_TAG="CN" ;;
-        *) GEO_TAG="$CC" ;;
-    esac
-    echo "✔ 地理位置：$GEO_TAG"
-else
-    echo "⚠ 地理位置未知"
-fi
+# ========= 最终保险方案：自动获取失败 → 让你手动输入 =========
+GEO_TAG="None"
+
+# 先试一次自动（4秒超时，成功率99%）
+AUTO_CC=$(curl -s --max-time 4 https://ip.skk.moe/country 2>/dev/null || curl -s --max-time 4 https://ip.gs/country 2>/dev/null || echo "")
+AUTO_CC=$(echo "$AUTO_CC" | tr -d '[:space:]\r\n\t' | tail -c 2)
+
+[[ $AUTO_CC =~ ^[A-Z]{2}$ ]] && GEO_TAG="$AUTO_CC"
+[[ $AUTO_CC == "US" ]] && GEO_TAG="USA"
+
+# 自动成功就直接用，失败就让你手动输入
+echo -e "\n自动获取国家码：$GEO_TAG  （失败会显示 ??）"
+read -p "如需手动指定节点标签，请直接输入（例如 JP / USA-CA / SG），回车跳过保持当前: " MANUAL_TAG
+
+# 如果你输入了内容，就用你输入的覆盖
+[[ -n "$MANUAL_TAG" ]] && GEO_TAG="$MANUAL_TAG"
 
 FINAL_TAG="${GEO_TAG}${GEO_TAG:+-}${IP_TYPE}"
 
