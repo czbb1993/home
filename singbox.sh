@@ -107,20 +107,21 @@ fi
 
 GEO_TAG="??"
 
-# 5 秒内必须给我吐出国家码，谁不行换谁，直到成功
-for api in "https://ipinfo.io/country" \
-           "https://api.ip.sb/ipinfo/country" \
-           "https://ip.gs/country" \
-           "https://ip.skk.moe/country"; do
-    CC=$(curl -s --max-time 5 "$api" 2>/dev/null | tr -d '[:space:]')
-    [[ $CC =~ ^[A-Z]{2}$ ]] && { GEO_TAG="$CC"; break; }
+for api in \
+  https://ipinfo.io/country \
+  https://api.ip.sb/ipinfo/country \
+  https://ip.gs/country \
+  https://ip.skk.moe/country
+do
+    CC=$(curl -s --max-time 5 "$api" 2>/dev/null | tr -d '[:space:]\r\n')
+    if [[ $CC =~ ^[A-Z]{2}$ ]]; then
+        GEO_TAG="$CC"
+        [[ $CC == "US" ]] && GEO_TAG="USA"
+        [[ $CC == "CN" ]] && GEO_TAG="CN"
+        break
+    fi
 done
 
-# 特殊处理美国和中国（可选）
-[[ "$GEO_TAG" == "US" ]] && GEO_TAG="USA"
-[[ "$GEO_TAG" == "CN" ]] && GEO_TAG="CN"
-
-# 强制给你看一眼结果（跑一次成功后你可以删这行）
 echo -e "\n地理位置强制获取成功：$GEO_TAG"
 
 FINAL_TAG="${GEO_TAG}${GEO_TAG:+-}${IP_TYPE}"
