@@ -127,10 +127,7 @@ GEO_TAG="None"
 
 sleep 4.5
 wait $! 2>/dev/null || true
-
-FINAL_TAG="${IP_TYPE}${GEO_TAG:+-${GEO_TAG}}"
-echo "服务器地址：$DISPLAY_IP  |  标签：$FINAL_TAG"
-echo "===================================================="
+FINAL_TAG="${GEO_TAG}${GEO_TAG:+-}${IP_TYPE}"
 
 # ==================== 输出终极节点链接（带 v4/v6 + 地区标签）================
 echo "服务器地址：$DISPLAY_IP   |   标签：$FINAL_TAG"
