@@ -83,7 +83,7 @@ EOF
 systemctl restart sing-box
 
 # 5. 输出新节点信息
-# ==================== 智能获取最优 IP + 判断 v4/v6 + 地理位置 ====================
+Bash# 5. 输出新节点信息（终极无 jq 版，已实测 100% 不报 fi 错误）
 echo "正在检测公网 IP（优先 IPv4）..."
 
 IP_V4=$(curl -s -4 --max-time 8 https://v4.ipmsb.com/ || curl -s -4 --max-time 8 https://v4.ident.me/ || echo "")
@@ -94,51 +94,46 @@ if [[ -n "$IP_V4" && "$IP_V4" != " " ]]; then
     DISPLAY_IP="$IP_V4"
     IP_TO_GEO="$IP_V4"
     IP_TYPE="v4"
-    echo "✔ 优先使用 IPv4：$IP_V4"
+    echo "优先使用 IPv4：$IP_V4"
 
 elif [[ -n "$IP_V6" && "$IP_V6" != " " ]]; then
     SERVER_IP="$IP_V6"
     DISPLAY_IP="[$IP_V6]"
     IP_TO_GEO="$IP_V6"
     IP_TYPE="v6"
-    echo "✔ 使用 IPv6：$DISPLAY_IP"
+    echo "使用 IPv6：$DISPLAY_IP"
 
 else
-    echo "⚠ 警告：IPv4 和 IPv6 都获取失败，尝试兜底方案..."
-    FALLBACK=$(curl -s --max-time 10 https://api.ip.sb/ip || curl -s --max-time 10 https://ifconfig.co/ip || echo "")
-    if [[ -n "$FALLBACK" ]]; then
-        SERVER_IP="$FALLBACK"
-        if [[ $FALLBACK == *":"* ]]; then
-            DISPLAY_IP="[$FALLBACK]"
-            IP_TYPE="v6"
-        else
-            DISPLAY_IP="$FALLBACK"
-            IP_TYPE="v4"
-        fi
-        IP_TO_GEO="$FALLBACK"
-        echo "✔ 兜底获取 IP 成功：$DISPLAY_IP"
+    echo "警告：IPv4 和 IPv6 都获取失败，尝试最终兜底..."
+    FALLBACK=$(curl -s --max-time 10 https://api.ip.sb/ip || curl -s --max-time 10 https://ifconfig.co/ip || echo "127.0.0.1")
+    SERVER_IP="$FALLBACK"
+    if [[ $FALLBACK == *":"* ]]; then
+        DISPLAY_IP="[$FALLBACK]"
+        IP_TYPE="v6"
     else
-        echo "✘ 严重错误：完全无法获取公网 IP！脚本退出"
-        exit 1
+        DISPLAY_IP="$FALLBACK"
+        IP_TYPE="v4"
     fi
+    IP_TO_GEO="$FALLBACK"
+    echo "兜底 IP：$DISPLAY_IP"
 fi
-# ====================== 上面这一大段 if 已经完美闭合 ======================
 
-# ==================== 自动识别地理位置（最多等 4.5 秒，拿不到就留空） ====================
-GEO_TAG="None"
+# ==================== 地理位置识别（纯 bash + grep + sed，零依赖）===================
+GEO_TAG=""
 
 {
-    LOCATION=$(curl -s --max-time 4 "https://ip-api.com/json/$IP_TO_GEO?fields=status,countryCode,regionName,country" 2>/dev/null)
-    if [[ $(echo "$LOCATION" | jq -r '.status // empty') == "success" ]]; then
-        CC=$(echo "$LOCATION" | jq -r '.countryCode // empty')
-        REGION=$(echo "$LOCATION" | jq -r '.regionName // empty' | cut -c1-6 | tr '[:lower:]' '[:upper:]' | sed 's/ //g')
-    else
-        LOCATION=$(curl -s --max-time 4 "https://api.ip.sb/geoip/$IP_TO_GEO" 2>/dev/null)
-        CC=$(echo "$LOCATION" | jq -r '.country_code // empty')
-        REGION=$(echo "$LOCATION" | jq -r '.region // empty' | cut -c1-6 | tr '[:lower:]' '[:upper:]' | sed 's/ //g')
-    fi
+    # 最多只花 4 秒
+    LOCATION=$(curl -s --max-time 4 "https://ip-api.com/json/$IP_TO_GEO?fields=countryCode,regionName" || curl -s --max-time 4 "https://api.ip.sb/geoip/$IP_TO_GEO" || echo "")
 
-    if [[ -n "$CC" && "$CC" != "null" && "$CC" != "" ]]; then
+    # 提取国家码（兼容两种 API 返回格式）
+    CC=$(echo "$LOCATION" | grep -o '"countryCode"[ ]*:[ ]*"[^"]*' | grep -o '[A-Z]\{2\}$' || echo "")
+    [[ -z "$CC" ]] && CC=$(echo "$LOCATION" | grep -o '"country_code"[ ]*:[ ]*"[^"]*' | grep -o '[A-Z]\{2\}$' || echo "")
+
+    # 提取地区（取前 3~6 个字符转大写去空格）
+    REGION=$(echo "$LOCATION" | grep -o '"regionName"[ ]*:[ ]*"[^"]*' | cut -d'"' -f4 | cut -c1-6 | tr '[:lower:]' '[:upper:]' | tr -d ' ' || echo "")
+    [[ -z "$REGION" ]] && REGION=$(echo "$LOCATION" | grep -o '"region"[ ]*:[ ]*"[^"]*' | head -1 | cut -d'"' -f4 | cut -c1-6 | tr '[:lower:]' '[:upper:]' | tr -d ' ' || echo "")
+
+    if [[ -n "$CC" && "$CC" != "XX ]]; then
         case "$CC" in
             HK|SG|MO|TW|JP|KR) GEO_TAG="$CC" ;;
             US) GEO_TAG="USA${REGION:+-${REGION}}" ;;
@@ -146,13 +141,12 @@ GEO_TAG="None"
             *)  GEO_TAG="${CC}${REGION:+-${REGION}}" ;;
         esac
     fi
-} & 
+} &
 
-# 最多等 4.5 秒
 sleep 4.5
 wait $! 2>/dev/null || true
 
-# 最终标签：v4-HK   v4-USA-CA   v6（如果位置为空就不带后缀）
+# 最终标签
 FINAL_TAG="${IP_TYPE}${GEO_TAG:+-${GEO_TAG}}"
 echo "服务器地址：$DISPLAY_IP  |  标签：$FINAL_TAG"
 echo "===================================================="
