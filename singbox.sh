@@ -3,13 +3,13 @@
 # 安装 sing-box beta 版（官方最新脚本，含 Hysteria2）
 #bash -c "$(curl -L sing-box.vercel.app)" @ install
 
-# systemctl enable sing-box
-# systemctl start sing-box
+systemctl enable sing-box
+systemctl start sing-box
 
 # 创建目录 + 自签证书（10年，CN=bing.com）
-# mkdir -p /etc/hysteria /etc/sing-box
-# openssl ecparam -genkey -name prime256v1 -out /etc/hysteria/private.key
-# openssl req -new -x509 -days 3650 -key /etc/hysteria/private.key -out /etc/hysteria/cert.pem -subj "/CN=bing.com"
+mkdir -p /etc/hysteria /etc/sing-box
+openssl ecparam -genkey -name prime256v1 -out /etc/hysteria/private.key
+openssl req -new -x509 -days 3650 -key /etc/hysteria/private.key -out /etc/hysteria/cert.pem -subj "/CN=bing.com"
 
 # 1. 先把变量读进来（防止脚本里没定义）
 source /dev/null  # 清空
@@ -84,7 +84,6 @@ systemctl restart sing-box
 
 # 5. 输出新节点信息
 echo "正在检测公网 IP（优先 IPv4）..."
-
 IP_V4=$(curl -s -4 --max-time 8 https://v4.ipmsb.com/ || curl -s -4 --max-time 8 https://v4.ident.me/ || echo "")
 IP_V6=$(curl -s -6 --max-time 8 https://v6.ipmsb.com/ || curl -s -6 --max-time 8 https://v6.ident.me/ || echo "")
 
@@ -100,9 +99,8 @@ else
     [[ $FALLBACK == *":"* ]] && { DISPLAY_IP="[$FALLBACK]"; IP_TYPE="v6"; } || { DISPLAY_IP="$FALLBACK"; IP_TYPE="v4"; }
     echo "兜底 IP：$DISPLAY_IP"
 fi
-# ↑ 上面只用一个 fi，绝不再多！
 
-GEO_TAG=""
+GEO_TAG="None"
 
 {
     DATA=$(curl -s --max-time 4 "https://ip-api.com/json/$IP_TO_GEO?fields=countryCode,regionName" || curl -s --max-time 4 "https://api.ip.sb/geoip/$IP_TO_GEO" || echo "")
@@ -130,7 +128,6 @@ echo "服务器地址：$DISPLAY_IP  |  标签：$FINAL_TAG"
 echo "===================================================="
 
 # ==================== 输出终极节点链接（带 v4/v6 + 地区标签）================
-echo "终极双协议部署完成（2025 最强智能标签版）"
 echo "服务器地址：$DISPLAY_IP   |   标签：$FINAL_TAG"
 echo ""
 echo "Hysteria2（主力冲量）"
@@ -143,6 +140,5 @@ echo "【参数备份】"
 echo "Hy2 密码       : $HY2_PASSWORD"
 echo "UUID           : $FIXED_UUID"
 echo "Reality 公钥    : $REALITY_PUBLIC_KEY"
-echo "Reality ShortId : $SHORT_ID"
 echo "真实 IP（手动填用）: $SERVER_IP"
 echo "===================================================="
