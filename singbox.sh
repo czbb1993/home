@@ -105,30 +105,30 @@ else
     echo "兜底 IP：$DISPLAY_IP"
 fi
 
-GEO_TAG="None"
+GEO_TAG=""
 
 {
-    # 最多只花 4 秒，两个 API 随便哪个返回就算
-    DATA=$(curl -s --max-time 4 "https://ip-api.com/json/$IP_TO_GEO?fields=countryCode,regionName" || curl -s --max-time 4 "https://api.ip.sb/geoip/$IP_TO_GEO" || echo "")
+    # 优先 ip-api.com，兜底 ip.sb（4 秒总超时）
+    DATA=$(curl -s --max-time 4 "https://ip-api.com/json/$IP_TO_GEO?fields=countryCode,regionName" 2>/dev/null || \
+           curl -s --max-time 4 "https://api.ip.sb/geoip/$IP_TO_GEO" 2>/dev/null || echo "")
 
-    # ---------- 超级稳的国家码提取（兼容所有已知返回格式） ----------
-    CC=$(echo "$DATA" | grep -o '"country_code"[[:space:]]*:[[:space:]]*"[A-Z]*"' | grep -o '[A-Z][A-Z]' | head -1)
-    [[ -z "$CC" ]] && CC=$(echo "$DATA" | grep -o '"countryCode"[[:space:]]*:[[:space:]]*"[A-Z]*"' | grep -o '[A-Z][A-Z]' | head -1)
-    [[ -z "$CC" ]] && CC=$(echo "$DATA" | grep -oi '"country_code":"[A-Z]*' | cut -d'"' -f4)
-    [[ -z "$CC" ]] && CC=$(echo "$DATA" | grep -oi '"countryCode":"[A-Z]*' | cut -d'"' -f4)
+    # ========== 用 awk 超级稳健提取 CC（兼容两种 API） ==========
+    CC=$(echo "$DATA" | awk -F'"' '/countryCode":/ {for(i=1;i<=NF;i++) if($i ~ /^[A-Z]{2}$/) {print $i; exit}} /country_code":/ {for(i=1;i<=NF;i++) if($i ~ /^[A-Z]{2}$/) {print $i; exit}}' | head -1)
 
-    # ---------- 地区提取（同样多层兜底） ----------
-    REGION=$(echo "$DATA" | grep -oi '"regionName":"[^"]*' | cut -d'"' -f4 | cut -c1-8 | tr '[:lower:]' '[:upper:]' | tr -d ' ' | head -1)
-    [[ -z "$REGION" ]] && REGION=$(echo "$DATA" | grep -oi '"region":"[^"]*' | cut -d'"' -f4 | cut -c1-8 | tr '[:lower:]' '[:upper:]' | tr -d ' ' | head -1)
+    # ========== 用 awk 提取 REGION（取前 8 字符，大写，去空格） ==========
+    REGION=$(echo "$DATA" | awk -F'"' '/regionName":/ || /region":/ {for(i=1;i<=NF;i++) if($i ~ /^[a-zA-Z ]+$/) {gsub(/ /,"",$i); print toupper(substr($i,1,8)); exit}}' | head -1)
 
-    # ---------- 最终生成 GEO_TAG ----------
-    if [[ -n "$CC" && "$CC" != "XX" && "$CC" != "ZZ" ]]; then
+    # ========== 生成 GEO_TAG（如果 CC 有效） ==========
+    if [[ -n "$CC" && ${#CC} -eq 2 && "$CC" != "XX" && "$CC" != "ZZ" ]]; then
         case "$CC" in
-            HK|SG|MO|TW|JP|KR|KP) GEO_TAG="$CC" ;;           # 这些国家只显示国家码
+            HK|SG|MO|TW|JP|KR|KP) GEO_TAG="$CC" ;;  # 亚洲热门只用国家码
             US) GEO_TAG="USA${REGION:+-${REGION}}" ;;
             CN) GEO_TAG="CN${REGION:+-${REGION}}" ;;
-            *)  GEO_TAG="${CC}${REGION:+-${REGION}}" ;;
+            *) GEO_TAG="${CC}${REGION:+-${REGION}}" ;;  # 其他国家 + 地区
         esac
+        echo "调试：CC=$CC, REGION=$REGION, GEO_TAG=$GEO_TAG"  # 临时调试行，成功后可删
+    else
+        echo "调试：CC 提取失败（DATA: $DATA）"  # 临时调试，查看 DATA 是否为空
     fi
 } &
 
