@@ -3,8 +3,13 @@
 # 安装 sing-box beta 版（官方最新脚本，含 Hysteria2）
 #bash -c "$(curl -L sing-box.vercel.app)" @ install
 
-systemctl enable sing-box
-systemctl start sing-box
+if ! systemctl is-enabled sing-box &>/dev/null; then
+    systemctl enable sing-box
+    systemctl start sing-box
+    echo "sing-box 已设置为开机自启"
+else
+    echo "sing-box 已经开机自启，无需重复设置"
+fi
 
 # 创建目录 + 自签证书（10年，CN=bing.com）
 # mkdir -p /etc/hysteria /etc/sing-box
