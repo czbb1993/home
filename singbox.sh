@@ -106,7 +106,7 @@ else
 fi
 
 # ========= 最终保险方案：自动获取失败 → 让你手动输入 =========
-GEO_TAG="None"
+GEO_TAG="??"
 
 # 先试一次自动（4秒超时，成功率99%）
 AUTO_CC=$(curl -s --max-time 4 https://ip.skk.moe/country 2>/dev/null || curl -s --max-time 4 https://ip.gs/country 2>/dev/null || echo "")
