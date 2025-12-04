@@ -84,12 +84,41 @@ EOF
 systemctl restart sing-box
 
 # 5. 输出新节点信息
-IP=$(curl -s ip.sb)
+# ==================== 智能获取最优 IP（优先 IPv4 → 再 IPv6）====================
+# 方法：同时请求多个常用 IP 查询服务，谁先返回 IPv4 就用谁；都超时就用 IPv6
+IP_V4=$(curl -s -4 --max-time 8 https://v4.ipmsb.com/ || curl -s -4 --max-time 8 https://v4.ident.me/ || echo "")
+IP_V6=$(curl -s -6 --max-time 8 https://v6.ipmsb.com/ || curl -s -6 --max-time 8 https://v6.ident.me/ || echo "")
+
+if [[ -n "$IP_V4" && "$IP_V4" !=, ]]; then
+    SERVER_IP="$IP_V4"
+    DISPLAY_IP="$IP_V4"
+    echo "检测到 IPv4 可用，优先使用：$IP_V4"
+elif [[ -n "$IP_V6" && "$IP_V6" != *":"* ]]; then
+    SERVER_IP="$IP_V6"
+    DISPLAY_IP="[$IP_V6]"   # IPv6 必须加方括号
+    echo "仅检测到 IPv6，使用：$DISPLAY_IP"
+else
+    echo "警告：未能获取公网 IP！将尝试使用 ip.sb 兜底（可能不准）"
+    FALLBACK=$(curl -s https://ip.sb)
+    SERVER_IP="$FALLBACK"
+    [[ $FALLBACK == *":"* ]] && DISPLAY_IP="[$FALLBACK]" || DISPLAY_IP="$FALLBACK"
+fi
+
+# ==================== 输出节点信息（已完美兼容 IPv4/IPv6/双栈）====================
 echo "===================================================="
-echo "终极双端口版部署完成（2025 年最稳方案）"
-echo "Hysteria2 → 443 端口（主用，速度最快）"
-echo "hysteria2://$HY2_PASSWORD@$IP:$PORT_HY2/?sni=bing.com&insecure=1#Hy2-443"
+echo "终极双协议一键部署完成（2025 最强双栈兼容版）"
+echo "服务器最优地址：$DISPLAY_IP   (原始IP：$SERVER_IP)"
 echo ""
-echo "VLESS-Reality → 8443 端口（备用，几乎永不封）"
-echo "vless://$FIXED_UUID@$IP:$PORT_REALITY?encryption=none&flow=xtls-rprx-vision&security=reality&sni=$REALITY_DOMAIN&fp=chrome&pbk=$REALITY_PUBLIC_KEY&sid=0123456789abcdef&type=tcp#Reality-8443"
+echo "Hysteria2（主力冲量，443端口）"
+echo "hysteria2://$HY2_PASSWORD@$DISPLAY_IP:$PORT_HY2/?sni=bing.com&insecure=1&alpn=h3#Hy2-Main-443"
+echo ""
+echo "VLESS + Reality（永不封，8443端口）"
+echo "vless://$FIXED_UUID@$DISPLAY_IP:$PORT_REALITY?encryption=none&flow=xtls-rprx-vision&security=reality&sni=$REALITY_DOMAIN&fp=chrome&pbk=$REALITY_PUBLIC_KEY&sid=0123456789abcdef&type=tcp&packetEncoding=true#Reality-Backup-8443"
+echo ""
+echo "【关键参数备份】"
+echo "Hy2 密码      : $HY2_PASSWORD"
+echo "UUID          : $FIXED_UUID"
+echo "Reality 公钥   : $REALITY_PUBLIC_KEY"
+echo "Reality ShortId: $SHORT_ID"
 echo "===================================================="
+
