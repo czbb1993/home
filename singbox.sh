@@ -106,11 +106,14 @@ else
 fi
 
 # 地理位置识别（纯文本 API，零依赖，4 秒超时，拿不到就空）
-GEO_TAG=""
-CC=$(timeout 4 curl -s "https://ipinfo.io/country/$IP_TO_GEO" 2>/dev/null || timeout 4 curl -s "https://api.ip.sb/ipinfo/country/$IP_TO_GEO" 2>/dev/null || echo "??")
-echo "⚠ 地理$CC"
-CC=$(echo "$CC" | tr -d ' \n\r')
-echo "⚠ 地理$CC"
+GEO_TAG="None"
+# 不依赖 timeout，用 curl 自带的 --max-time 实现 4 秒超时 + 双 API 兜底
+CC=$(curl -s --max-time 4 https://ipinfo.io/country      2>/dev/null || \
+     curl -s --max-time 4 https://api.ip.sb/ipinfo/country 2>/dev/null || \
+     curl -s --max-time 4 https://ip.gs/country             2>/dev/null || \
+     echo "??")
+CC=$(echo "$CC" | tr -d '[:space:]\r\n')   # 清除空格换行
+echo "调试：原始返回 → '$CC'"
 if [[ ${#CC} -eq 2 && "$CC" =~ [A-Z]{2} ]]; then
     case "$CC" in
         HK|SG|MO|TW|JP|KR|KP) GEO_TAG="$CC" ;;
