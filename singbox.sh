@@ -105,22 +105,25 @@ else
     echo "兜底 IP：$DISPLAY_IP"
 fi
 
-# ========= 最终保险方案：自动获取失败 → 让你手动输入 =========
+# ========= 彻底绕过 heredoc 吃输入的终极手动方案 =========
 GEO_TAG="??"
 
-# 先试一次自动（4秒超时，成功率99%）
-AUTO_CC=$(curl -s --max-time 4 https://ip.skk.moe/country 2>/dev/null || curl -s --max-time 4 https://ip.gs/country 2>/dev/null || echo "")
-AUTO_CC=$(echo "$AUTO_CC" | tr -d '[:space:]\r\n\t' | tail -c 2)
-
+# 先试一次自动（基本不会成功也没关系）
+AUTO_CC=$(curl -s --max-time 3 https://ip.skk.moe/country 2>/dev/null || echo "")
 [[ $AUTO_CC =~ ^[A-Z]{2}$ ]] && GEO_TAG="$AUTO_CC"
 [[ $AUTO_CC == "US" ]] && GEO_TAG="USA"
 
-# 自动成功就直接用，失败就让你手动输入
-echo -e "\n自动获取国家码：$GEO_TAG  （失败会显示 ??）"
-read -p "如需手动指定节点标签，请直接输入（例如 JP / USA-CA / SG），回车跳过保持当前: " MANUAL_TAG
+echo ""
+echo "自动获取结果：$GEO_TAG  （?? 表示失败）"
+echo "===================================================="
 
-# 如果你输入了内容，就用你输入的覆盖
-[[ -n "$MANUAL_TAG" ]] && GEO_TAG="$MANUAL_TAG"
+# 关键：强制从 /dev/tty 读输入，彻底绕过 heredoc 吃 stdin 的问题
+while true; do
+    read -p "请手动输入节点标签（例：JP / USA-CA / SG / Tokyo），回车跳过用 $GEO_TAG: " USER_INPUT </dev/tty
+    [[ $USER_INPUT == "" ]] && break
+    [[ $USER_INPUT =~ ^[A-Za-z0-9.-]{1,15}$ ]] && { GEO_TAG="$USER_INPUT"; break; }
+    echo "输入非法，请重新输入（只允许字母数字.-"
+done
 
 FINAL_TAG="${GEO_TAG}${GEO_TAG:+-}${IP_TYPE}"
 
