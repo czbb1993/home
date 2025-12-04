@@ -109,7 +109,7 @@ fi
 GEO_TAG=""
 CC=$(timeout 4 curl -s "https://ipinfo.io/country/$IP_TO_GEO" 2>/dev/null || timeout 4 curl -s "https://api.ip.sb/ipinfo/country/$IP_TO_GEO" 2>/dev/null || echo "??")
 CC=$(echo "$CC" | tr -d ' \n\r')
-
+echo "⚠ 地理$CC"
 if [[ ${#CC} -eq 2 && "$CC" =~ [A-Z]{2} ]]; then
     case "$CC" in
         HK|SG|MO|TW|JP|KR|KP) GEO_TAG="$CC" ;;
