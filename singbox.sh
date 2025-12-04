@@ -107,33 +107,26 @@ fi
 
 GEO_TAG=""
 
-{
-    # 优先 ip-api.com，兜底 ip.sb（4 秒总超时）
-    DATA=$(curl -s --max-time 4 "https://ip-api.com/json/$IP_TO_GEO?fields=countryCode,regionName" 2>/dev/null || \
-           curl -s --max-time 4 "https://api.ip.sb/geoip/$IP_TO_GEO" 2>/dev/null || echo "")
+# 直接同步跑，最多 4 秒，强制有结果
+DATA=$(timeout 4 curl -s "https://ip-api.com/json/$IP_TO_GEO?fields=countryCode" || \
+       timeout 4 curl -s "https://api.ip.sb/geoip/$IP_TO_GEO" || echo '{}')
 
-    # ========== 用 awk 超级稳健提取 CC（兼容两种 API） ==========
-    CC=$(echo "$DATA" | awk -F'"' '/countryCode":/ {for(i=1;i<=NF;i++) if($i ~ /^[A-Z]{2}$/) {print $i; exit}} /country_code":/ {for(i=1;i<=NF;i++) if($i ~ /^[A-Z]{2}$/) {print $i; exit}}' | head -1)
+# 超级无敌兼容的 awk 一行解决国码
+CC=$(echo "$DATA" | awk -F'"' '
+  /countryCode|/country_code/ {
+    for(i=1;i<=NF;i++) if($i ~ /^[A-Z]{2}$/ && length($i)==2) {print $i; exit}
+  }' | head -1)
 
-    # ========== 用 awk 提取 REGION（取前 8 字符，大写，去空格） ==========
-    REGION=$(echo "$DATA" | awk -F'"' '/regionName":/ || /region":/ {for(i=1;i<=NF;i++) if($i ~ /^[a-zA-Z ]+$/) {gsub(/ /,"",$i); print toupper(substr($i,1,8)); exit}}' | head -1)
+# 直接写死几个常见国家就行，稳到爆
+case "$CC" in
+    HK|SG|MO|TW|JP|KR|KP) GEO_TAG="$CC" ;;
+    US) GEO_TAG="USA" ;;
+    CN) GEO_TAG="CN" ;;
+    *) [[ -n "$CC" ]] && GEO_TAG="$CC" ;;
+esac
 
-    # ========== 生成 GEO_TAG（如果 CC 有效） ==========
-    if [[ -n "$CC" && ${#CC} -eq 2 && "$CC" != "XX" && "$CC" != "ZZ" ]]; then
-        case "$CC" in
-            HK|SG|MO|TW|JP|KR|KP) GEO_TAG="$CC" ;;  # 亚洲热门只用国家码
-            US) GEO_TAG="USA${REGION:+-${REGION}}" ;;
-            CN) GEO_TAG="CN${REGION:+-${REGION}}" ;;
-            *) GEO_TAG="${CC}${REGION:+-${REGION}}" ;;  # 其他国家 + 地区
-        esac
-        echo "调试：CC=$CC, REGION=$REGION, GEO_TAG=$GEO_TAG"  # 临时调试行，成功后可删
-    else
-        echo "调试：CC 提取失败（DATA: $DATA）"  # 临时调试，查看 DATA 是否为空
-    fi
-} &
-
-sleep 4.5
-wait $! 2>/dev/null || true
+# 强制给你一个可见的反馈（运行一次后你可以删这行）
+echo "地理位置检测结果：CC=$CC → GEO_TAG=$GEO_TAG"
 FINAL_TAG="${GEO_TAG}${GEO_TAG:+-}${IP_TYPE}"
 
 # ==================== 输出终极节点链接（带 v4/v6 + 地区标签）================
