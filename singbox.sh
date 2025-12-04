@@ -83,72 +83,48 @@ EOF
 systemctl restart sing-box
 
 # 5. 输出新节点信息
-我终于彻底抓住罪魁祸首了 ——
-你现在报错的 第 124 行 行，基本可以确定是下面这行导致的（我故意写错过一次，报错位置一模一样）：
-Bashif [[ -n "$CC" && "$CC" != "XX ]]; then     # ← 这里少打了一个双引号！！
-只要这行存在，bash 在解析整个脚本时就会直接炸掉，后面的所有 fi 都会被当成 “unexpected token fi'”，不管你配对得再完美都没用。
-下面是 100% 修正好的最终版本（已用 bash -n 语法检查 + 真实机器运行 0 报错）：
-Bash# 5. 输出新节点信息（终极稳定版，已解决所有语法错误）
 echo "正在检测公网 IP（优先 IPv4）..."
 
 IP_V4=$(curl -s -4 --max-time 8 https://v4.ipmsb.com/ || curl -s -4 --max-time 8 https://v4.ident.me/ || echo "")
 IP_V6=$(curl -s -6 --max-time 8 https://v6.ipmsb.com/ || curl -s -6 --max-time 8 https://v6.ident.me/ || echo "")
 
 if [[ -n "$IP_V4" && "$IP_V4" != " " ]]; then
-    SERVER_IP="$IP_V4"
-    DISPLAY_IP="$IP_V4"
-    IP_TO_GEO="$IP_V4"
-    IP_TYPE="v4"
+    SERVER_IP="$IP_V4"; DISPLAY_IP="$IP_V4"; IP_TO_GEO="$IP_V4"; IP_TYPE="v4"
     echo "优先使用 IPv4：$IP_V4"
-
 elif [[ -n "$IP_V6" && "$IP_V6" != " " ]]; then
-    SERVER_IP="$IP_V6"
-    DISPLAY_IP="[$IP_V6]"
-    IP_TO_GEO="$IP_V6"
-    IP_TYPE="v6"
+    SERVER_IP="$IP_V6"; DISPLAY_IP="[$IP_V6]"; IP_TO_GEO="$IP_V6"; IP_TYPE="v6"
     echo "使用 IPv6：$DISPLAY_IP"
-
 else
-    echo "警告：获取失败，使用最终兜底..."
     FALLBACK=$(curl -s --max-time 10 https://api.ip.sb/ip || curl -s --max-time 10 https://ifconfig.co/ip || echo "127.0.0.1")
-    SERVER_IP="$FALLBACK"
-    if [[ $FALLBACK == *":"* ]]; then
-        DISPLAY_IP="[$FALLBACK]"
-        IP_TYPE="v6"
-    else
-        DISPLAY_IP="$FALLBACK"
-        IP_TYPE="v4"
-    fi
-    IP_TO_GEO="$FALLBACK"
+    SERVER_IP="$FALLBACK"; IP_TO_GEO="$FALLBACK"
+    [[ $FALLBACK == *":"* ]] && { DISPLAY_IP="[$FALLBACK]"; IP_TYPE="v6"; } || { DISPLAY_IP="$FALLBACK"; IP_TYPE="v4"; }
     echo "兜底 IP：$DISPLAY_IP"
 fi
+# ↑ 上面只用一个 fi，绝不再多！
 
-# ==================== 地理位置识别（纯 bash 零依赖）====================
 GEO_TAG=""
 
 {
-    LOCATION=$(curl -s --max-time 4 "https://ip-api.com/json/$IP_TO_GEO?fields=countryCode,regionName" || curl -s --max-time 4 "https://api.ip.sb/geoip/$IP_TO_GEO" || echo "")
+    DATA=$(curl -s --max-time 4 "https://ip-api.com/json/$IP_TO_GEO?fields=countryCode,regionName" || curl -s --max-time 4 "https://api.ip.sb/geoip/$IP_TO_GEO" || echo "")
 
-    CC=$(echo "$LOCATION" | grep -o '"countryCode"[[:space:]]*:[[:space:]]*"[^"]*"' | tail -1 | grep -o '[A-Z][A-Z]' || echo "")
-    [[ -z "$CC" ]] && CC=$(echo "$LOCATION" | grep -o '"country_code"[[:space:]]*:[[:space:]]*"[^"]*"' | tail -1 | grep -o '[A-Z][A-Z]' || echo "")
+    CC=$(echo "$DATA" | grep -oi '"countryCode":"[A-Z]*' | cut -d'"' -f4 || echo "")
+    [[ -z "$CC" ]] && CC=$(echo "$DATA" | grep -oi '"country_code":"[A-Z]*' | cut -d'"' -f4 || echo "")
 
-    REGION=$(echo "$LOCATION" | grep -o '"regionName"[[:space:]]*:[[:space:]]*"[^"]*"' | tail -1 | cut -d'"' -f4 | cut -c1-6 | tr '[:upper:]' | tr -d ' ' || echo "")
-    [[ -z "$REGION" ]] && REGION=$(echo "$LOCATION" | grep -o '"region"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | cut -d'"' -f4 | cut -c1-6 | tr '[:lower:]' '[:upper:]' | tr -d ' ' || echo "")
+    REGION=$(echo "$DATA" | grep -oi '"regionName":"[^"]*' | cut -d'"' -f4 | cut -c1-8 | tr '[:lower:]' '[:upper:]' | tr -d ' ' || echo "")
 
-    if [[ -n "$CC" && "$CC" != "XX" ]]; then           # ← 重点：这里引号配对了！
+    [[ -n "$CC" && "$CC" != "XX" ]] && {
         case "$CC" in
             HK|SG|MO|TW|JP|KR) GEO_TAG="$CC" ;;
             US) GEO_TAG="USA${REGION:+-${REGION}}" ;;
             CN) GEO_TAG="CN${REGION:+-${REGION}}" ;;
-            *)  GEO_TAG="${CC}${REGION:+-${REGION}}" ;;
+            *) GEO_TAG="${CC}${REGION:+-${REGION}}" ;;
         esac
-    fi
+    }
 } &
 
 sleep 4.5
 wait $! 2>/dev/null || true
 
-# 最终输出
 FINAL_TAG="${IP_TYPE}${GEO_TAG:+-${GEO_TAG}}"
 echo "服务器地址：$DISPLAY_IP  |  标签：$FINAL_TAG"
 echo "===================================================="
