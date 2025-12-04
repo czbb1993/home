@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-set -e
 
 # 安装 sing-box beta 版（官方最新脚本，含 Hysteria2）
 #bash -c "$(curl -L sing-box.vercel.app)" @ install
