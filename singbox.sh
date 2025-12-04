@@ -107,15 +107,20 @@ fi
 # ========= 彻底绕过 heredoc 吃输入的终极手动方案 =========
 GEO_TAG="??"
 
-# 先试一次自动（基本不会成功也没关系）
-AUTO_CC=$(curl -s --max-time 3 https://ip.skk.moe/country 2>/dev/null || echo "")
+# 先试主 API（country.is，纯文本 JP）
+AUTO_CC=$(curl -s --max-time 3 https://country.is/ 2>/dev/null || echo "")
+# 兜底 1：ipaddress.com（也纯文本）
+[[ -z "$AUTO_CC" || ! "$AUTO_CC" =~ ^[A-Z]{2}$ ]] && \
+AUTO_CC=$(curl -s --max-time 3 https://api.ipaddress.com/ip/$(curl -s --max-time 3 https://api.ipaddress.com/ip)/country 2>/dev/null | tr -d '[:space:]\r\n' || echo "")
+# 兜底 2：ip-api.com（JSON 提取，但只取 countryCode）
+[[ -z "$AUTO_CC" || ! "$AUTO_CC" =~ ^[A-Z]{2}$ ]] && \
+AUTO_CC=$(curl -s --max-time 3 https://ip-api.com/json/ 2>/dev/null | grep -o '"countryCode":"[A-Z][A-Z]"' | cut -d'"' -f4 || echo "")
+
+# 清理 + 验证（确保是 2 位大写）
+AUTO_CC=$(echo "$AUTO_CC" | tr -d '[:space:]\r\n' | grep -o '^[A-Z]\{2\}$' | head -1)
 [[ $AUTO_CC =~ ^[A-Z]{2}$ ]] && GEO_TAG="$AUTO_CC"
-[[ $AUTO_CC == "US" ]] && GEO_TAG="USA"
 
-echo ""
 echo "自动获取结果：$GEO_TAG  （?? 表示失败）"
-echo "===================================================="
-
 # 关键：强制从 /dev/tty 读输入，彻底绕过 heredoc 吃 stdin 的问题
 while true; do
     read -p "请手动输入节点标签（例：JP / USA-CA / SG / Tokyo），回车跳过用 $GEO_TAG: " USER_INPUT </dev/tty
